@@ -2,5 +2,20 @@
 name = "issn"
 version = "0.1.0"
 edition = "2024"
+authors = ["Nico Wagner <n.wagner@dnb.de>"]
+license = "EUPL-1.2"
+repository = "https://github.com/deutsche-nationalbibliothek/issn-rs"
+rust-version = "1.87.0"
+
+[features]
+default = ["performant"]
+perf-inline = []
+performant = ["perf-inline"]
 
 [dependencies]
+arrayvec = "0.7.8"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true

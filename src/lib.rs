@@ -1,14 +1,377 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+//! This library provides functions for working with ISSNs. The library
+//! focuses on a simple API, high performance, and minimal dependencies
+//! on other libraries.
+//!
+//! Please keep in mind that even if an ISSN is syntactically correct,
+//! it is not necessarily associated with a resource or actually
+//! assigned by an ISSN National Center.
+
+use std::fmt::{self, Display};
+use std::str::FromStr;
+
+use arrayvec::ArrayVec;
+
+/// An International Standard Serial Number (ISSN).
+///
+/// # Parsing and printing
+///
+/// The `Issn` type provides the trait implementations of
+/// [`std::str::FromStr`] and [`std::fmt::Display`]:
+///
+/// ```rust
+/// use issn::Issn;
+///
+/// let issn: Issn = "1434-4653".parse()?;
+/// assert_eq!(issn.to_string(), "1434-4653");
+///
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+#[derive(Debug)]
+pub struct Issn {
+    /// The individual digits of an ISSN are stored as a fixed-length
+    /// ArrayVec. The individual digits are not converted into their
+    /// numerical values in order to ensure fast conversion to a
+    /// string.
+    ///
+    /// It is guaranteed that the first seven digits will always be in
+    /// the range from `0` (U+0030) to `9` (U+0039) and that the eighth
+    /// position will contain a valid check digit from `0` (U+0030) to
+    /// `9` (U+0039) or `X` (U+0058).
+    digits: ArrayVec<u8, 8>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl Issn {
+    /// Creates a new ISSN from a byte slice.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use issn::Issn;
+    ///
+    /// let _issn = Issn::new(b"1434-4653")?;
+    ///
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[cfg_attr(feature = "perf-inline", inline(always))]
+    pub fn new<B: AsRef<[u8]>>(input: B) -> Result<Self, Error> {
+        Parser::new(input.as_ref()).parse()
+    }
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    /// Creates a new ISSN by specifying all digits (including the
+    /// checksum).
+    ///
+    /// # Note
+    ///
+    /// This function expects the individual digits to be numbers (`u8`)
+    /// that are not in their ASCII representation.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use issn::Issn;
+    ///
+    /// let _issn = Issn::from_digits([1, 4, 3, 4, 4, 6, 5, 3])?;
+    ///
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn from_digits(digits: [u8; 8]) -> Result<Self, Error> {
+        let digits = ArrayVec::from_iter(
+            digits.iter().map(|digit| digit + b'0'),
+        );
+
+        for i in 0..8 {
+            if !digits[i].is_ascii_digit() {
+                return Err(Error {
+                    kind: ErrorKind::Digit {
+                        value: digits[i],
+                        position: i,
+                    },
+                });
+            }
+        }
+
+        let issn = Issn { digits };
+        issn.validate()?;
+
+        Ok(issn)
+    }
+
+    /// Returns the ISSN formatted in a single groups of eight digits
+    /// without a separator.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use issn::Issn;
+    ///
+    /// let issn: Issn = "2194-8860".parse()?;
+    /// assert_eq!(issn.unhyphenated(), "21948860");
+    ///
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[cfg_attr(feature = "perf-inline", inline(always))]
+    pub fn unhyphenated(&self) -> &str {
+        // SAFETY: All individual values come from the ASCII alphabet,
+        // and the byte slice can be safely converted to a Unicode
+        // string.
+        unsafe { str::from_utf8_unchecked(&self.digits) }
+    }
+
+    /// This function verifies the validity of the provided ISSN by
+    /// checking the checksum in the last position.
+    ///
+    /// The checksum is calculated as follows: First, the weighted sum
+    /// of the first seven digits is calculated using the weights 8, 7,
+    /// ..., 2. Finally, the remainder is calculated by dividing by 11
+    /// (`mod 11`). If the remainder is `0`, the checksum is ‘0’ (48).
+    /// Otherwise, the remainder is subtracted from 11; if the result is
+    /// 10, the checksum is b'X' (88); otherwise, it is the ASCII
+    /// equivalent of the result.
+    #[cfg_attr(feature = "perf-inline", inline(always))]
+    fn validate(&self) -> Result<(), Error> {
+        const WEIGHTS: [u64; 7] = [8, 7, 6, 5, 4, 3, 2];
+
+        let sum = self.digits[0..7]
+            .iter()
+            .zip(WEIGHTS)
+            .map(|(digit, weight)| (*digit - b'0') as u64 * weight)
+            .sum::<u64>();
+
+        let r = (sum % 11) as u8;
+        let checksum = if r == 0 {
+            b'0'
+        } else {
+            match 11 - r {
+                10 => b'X',
+                value => b'0' + value,
+            }
+        };
+
+        if self.digits[7] != checksum {
+            return Err(Error {
+                kind: ErrorKind::Checksum {
+                    value: self.digits[7],
+                    checksum,
+                },
+            });
+        }
+
+        Ok(())
+    }
+}
+
+impl Display for Issn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}-{}",
+            unsafe { str::from_utf8_unchecked(&self.digits[0..4]) },
+            unsafe { str::from_utf8_unchecked(&self.digits[4..8]) }
+        )
+    }
+}
+
+impl FromStr for Issn {
+    type Err = Error;
+
+    /// Parses a ISSN from a string slice.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::str::FromStr;
+    ///
+    /// use issn::Issn;
+    ///
+    /// let _issn = Issn::from_str("1434-4653")?;
+    /// let _issn: Issn = "1434-4653".parse()?;
+    ///
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[cfg_attr(feature = "perf-inline", inline(always))]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Parser::new(s.as_bytes()).parse()
+    }
+}
+
+/// An error that can occur in this crate.
+#[derive(Debug, PartialEq)]
+pub struct Error {
+    kind: ErrorKind,
+}
+
+impl std::error::Error for Error {}
+
+/// The underlying kind of a [`Error`].
+#[derive(Debug, PartialEq)]
+enum ErrorKind {
+    // An invalid digit
+    Digit { value: u8, position: usize },
+    // An invalid checksum in the last position
+    Checksum { value: u8, checksum: u8 },
+    // The input is too small
+    Length { position: usize },
+    // An invalid separator
+    Separator { value: u8 },
+    // The input too long
+    Size { len: usize },
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ErrorKind::*;
+
+        match self.kind {
+            Digit { value, position } => write!(
+                f,
+                "expected ASCII digit at position {position}, but got `{value}`"
+            ),
+            Checksum { value, checksum } => write!(
+                f,
+                "invalid checksum, expected `{checksum}`, but got `{value}`",
+            ),
+            Length { position } => write!(
+                f,
+                "expected value at position {position}, but found end of input",
+            ),
+            Separator { value } => {
+                write!(
+                    f,
+                    "expected `-` as separator, but got `{value}`"
+                )
+            }
+            Size { len } => {
+                write!(
+                    f,
+                    "expected input of 9 bytes, but got `{len}` bytes"
+                )
+            }
+        }
+    }
+}
+
+/// A ISSN parser.
+struct Parser<'a> {
+    input: &'a [u8],
+    position: usize,
+}
+
+impl<'a> Parser<'a> {
+    /// Creates a new ISSN parser.
+    fn new<I: ?Sized + AsRef<[u8]>>(input: &'a I) -> Parser<'a> {
+        Parser {
+            input: input.as_ref(),
+            position: 0,
+        }
+    }
+
+    /// Parses the input and returns an ISSN if successful; otherwise,
+    /// it returns an error.
+    fn parse(&mut self) -> Result<Issn, Error> {
+        let mut digits = ArrayVec::new();
+
+        // parses the first group of four ASCII digits
+        digits
+            .try_extend_from_slice(self.parse_ascii_digits(4)?)
+            .expect("enough capacity");
+
+        // parses the separator '-'
+        self.parse_separator()?;
+
+        // parse the second group of four ASCII digits
+        digits
+            .try_extend_from_slice(self.parse_ascii_digits(4)?)
+            .unwrap();
+
+        let issn = Issn { digits };
+
+        // perform checksum validation
+        issn.validate()?;
+
+        // At this point, a complete, valid ISSN has been parsed, and it
+        // is expected that the input contains no further bytes.
+        if !self.is_done() {
+            return Err(Error {
+                kind: ErrorKind::Size {
+                    len: self.input.len(),
+                },
+            });
+        }
+
+        Ok(issn)
+    }
+
+    /// parses n consecutive ASCII digits
+    fn parse_ascii_digits(&mut self, n: usize) -> Result<&[u8], Error> {
+        let start = self.position;
+        let mut end = start;
+
+        for _ in 0..n {
+            if self.is_done() {
+                return Err(Error {
+                    kind: ErrorKind::Length {
+                        position: self.position,
+                    },
+                });
+            }
+
+            let byte = self.byte();
+
+            if !byte.is_ascii_digit() {
+                return Err(Error {
+                    kind: ErrorKind::Digit {
+                        value: byte,
+                        position: self.position,
+                    },
+                });
+            }
+
+            self.consume();
+            end += 1;
+        }
+
+        Ok(&self.input[start..end])
+    }
+
+    /// Parses the separator b'-'
+    #[cfg_attr(feature = "perf-inline", inline(always))]
+    fn parse_separator(&mut self) -> Result<(), Error> {
+        if self.is_done() {
+            return Err(Error {
+                kind: ErrorKind::Length {
+                    position: self.position,
+                },
+            });
+        }
+
+        if self.byte() != b'-' {
+            return Err(Error {
+                kind: ErrorKind::Separator { value: self.byte() },
+            });
+        }
+
+        self.consume();
+        Ok(())
+    }
+
+    /// Returns true if the end of input is reached
+    #[inline(always)]
+    fn is_done(&self) -> bool {
+        self.position == self.input.len()
+    }
+
+    /// Continue to the next byte
+    #[inline(always)]
+    fn consume(&mut self) {
+        self.position += 1;
+    }
+
+    /// Returns the current byte
+    ///
+    /// This function panics when a position beyond the end of the
+    /// input is accessed.
+    #[inline(always)]
+    fn byte(&self) -> u8 {
+        self.input[self.position]
     }
 }

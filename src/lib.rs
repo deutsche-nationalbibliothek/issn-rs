@@ -26,7 +26,7 @@ use arrayvec::ArrayVec;
 ///
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Issn {
     /// The individual digits of an ISSN are stored as a fixed-length
     /// ArrayVec. The individual digits are not converted into their
@@ -373,5 +373,21 @@ impl<'a> Parser<'a> {
     #[inline(always)]
     fn byte(&self) -> u8 {
         self.input[self.position]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_issn_new() {
+        let issn = Issn::new(b"1434-4653").unwrap();
+        assert_eq!(
+            issn,
+            Issn {
+                digits: ArrayVec::try_from(*b"14344653").unwrap(),
+            }
+        );
     }
 }

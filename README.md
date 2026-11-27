@@ -9,6 +9,10 @@ the `issn` crate is the parsing of an [International Standard Serial Number]
 reporting provides details about the underlying error if an ISSN cannot be
 parsed. Finally, the ISSN can be converted back into a string.
 
+The library is used by the following projects:
+
+* [marc21] — to find invalid ISSNs in MARC21 records using the [check] command
+
 This project is developed by the Metadata Department of the [German National
 Library] (DNB). It is used for data analysis and for automating metadata
 workflows (data engineering) as part of automatic subject indexing.
@@ -59,6 +63,7 @@ Origin][DCO].
 This project is licensed under the [European Union Public License 1.2][EUPL].
 
 [bibliographic records]: https://data.dnb.de/DNB/
+[check]: https://deutsche-nationalbibliothek.github.io/marc21-rs/marc21-cli/reference/commands/marc21-check.html
 [DCO]: https://developercertificate.org
 [EUPL]: ./LICENSE
 [German National Library]: https://dnb.de/

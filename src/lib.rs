@@ -57,45 +57,6 @@ impl Issn {
         Parser::new(input.as_ref()).parse()
     }
 
-    /// Creates a new ISSN by specifying all digits (including the
-    /// checksum).
-    ///
-    /// # Note
-    ///
-    /// This function expects the individual digits to be numbers (`u8`)
-    /// that are not in their ASCII representation.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use issn::Issn;
-    ///
-    /// let _issn = Issn::from_digits([1, 4, 3, 4, 4, 6, 5, 3])?;
-    ///
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
-    pub fn from_digits(digits: [u8; 8]) -> Result<Self, Error> {
-        let digits = ArrayVec::from_iter(
-            digits.iter().map(|digit| digit + b'0'),
-        );
-
-        for i in 0..8 {
-            if !digits[i].is_ascii_digit() {
-                return Err(Error {
-                    kind: ErrorKind::Digit {
-                        value: digits[i],
-                        position: i,
-                    },
-                });
-            }
-        }
-
-        let issn = Issn { digits };
-        issn.validate()?;
-
-        Ok(issn)
-    }
-
     /// Returns the ISSN formatted in a single groups of eight digits
     /// without a separator.
     ///

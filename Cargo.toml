@@ -2,10 +2,14 @@
 name = "issn"
 version = "0.1.0"
 edition = "2024"
-authors = ["Nico Wagner <n.wagner@dnb.de>"]
-license = "EUPL-1.2"
-repository = "https://github.com/deutsche-nationalbibliothek/issn-rs"
 rust-version = "1.87.0"
+authors = ["Nico Wagner <n.wagner@dnb.de>"]
+description = "A library to work with International Standard Serial Number (ISSN)"
+repository = "https://github.com/deutsche-nationalbibliothek/issn-rs"
+license = "EUPL-1.2"
+readme = "README.md"
+categories = ["parser-implementations"]
+keywords = ["code4lib"]
 
 
 [features]

@@ -432,4 +432,136 @@ mod tests {
         parse_success!("0942-3869", b"09423869");
         parse_success!("0201-193X", b"0201193X");
     }
+
+    #[test]
+    fn test_invalid_digit() {
+        macro_rules! parse_error {
+            ($input:expr, $value:expr, $position:expr) => {
+                assert_eq!(
+                    Parser::new($input).parse().unwrap_err(),
+                    Error {
+                        kind: ErrorKind::Digit {
+                            position: $position,
+                            value: $value,
+                        }
+                    }
+                );
+            };
+        }
+
+        parse_error!("a434-4653", b'a', 0);
+        parse_error!("1a34-4653", b'a', 1);
+        parse_error!("14a4-4653", b'a', 2);
+        parse_error!("143a-4653", b'a', 3);
+        parse_error!("1434-a653", b'a', 5);
+        parse_error!("1434-4a53", b'a', 6);
+        parse_error!("1434-46a3", b'a', 7);
+    }
+
+    #[test]
+    fn test_invalid_separator() {
+        macro_rules! parse_error {
+            ($input:expr, $value:expr) => {
+                assert_eq!(
+                    Parser::new($input).parse().unwrap_err(),
+                    Error {
+                        kind: ErrorKind::Separator { value: $value }
+                    }
+                );
+            };
+        }
+
+        parse_error!("1434 4653", b' ');
+        parse_error!("1434:4653", b':');
+    }
+
+    #[test]
+    fn test_invalid_checksum_digit() {
+        macro_rules! parse_error {
+            ($input:expr, $value:expr) => {
+                assert_eq!(
+                    Parser::new($input).parse().unwrap_err(),
+                    Error {
+                        kind: ErrorKind::ChecksumDigit {
+                            value: $value
+                        }
+                    }
+                );
+            };
+        }
+
+        parse_error!("1434-465Y", b'Y');
+    }
+
+    #[test]
+    fn test_invalid_checksum() {
+        macro_rules! parse_error {
+            ($input:expr, $value:expr, $checksum:expr) => {
+                assert_eq!(
+                    Parser::new($input).parse().unwrap_err(),
+                    Error {
+                        kind: ErrorKind::Checksum {
+                            checksum: $checksum,
+                            value: $value,
+                        }
+                    }
+                );
+            };
+        }
+
+        parse_error!("0294-0001", b'1', b'0');
+        parse_error!("0344-7872", b'2', b'1');
+        parse_error!("0077-5763", b'3', b'2');
+        parse_error!("0002-8704", b'4', b'3');
+        parse_error!("0160-6515", b'5', b'4');
+        parse_error!("0548-3086", b'6', b'5');
+        parse_error!("0160-6507", b'7', b'6');
+        parse_error!("0276-9078", b'8', b'7');
+        parse_error!("0177-8049", b'9', b'8');
+        parse_error!("0942-386X", b'X', b'9');
+        parse_error!("0201-1930", b'0', b'X');
+    }
+
+    #[test]
+    fn test_invalid_length() {
+        macro_rules! parse_error {
+            ($input:expr, $position:expr) => {
+                assert_eq!(
+                    Parser::new($input).parse().unwrap_err(),
+                    Error {
+                        kind: ErrorKind::Length {
+                            position: $position
+                        }
+                    }
+                );
+            };
+        }
+
+        parse_error!("", 0);
+        parse_error!("1", 1);
+        parse_error!("14", 2);
+        parse_error!("143", 3);
+        parse_error!("1434", 4);
+        parse_error!("1434-", 5);
+        parse_error!("1434-4", 6);
+        parse_error!("1434-46", 7);
+        parse_error!("1434-465", 8);
+    }
+
+    #[test]
+    fn test_invalid_size() {
+        macro_rules! parse_error {
+            ($input:expr, $length:expr) => {
+                assert_eq!(
+                    Parser::new($input).parse().unwrap_err(),
+                    Error {
+                        kind: ErrorKind::Size { len: $length }
+                    }
+                );
+            };
+        }
+
+        parse_error!("1434-4653 (ISSN)", 16);
+        parse_error!("1434-4653_", 10);
+    }
 }

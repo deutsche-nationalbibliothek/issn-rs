@@ -11,9 +11,9 @@ Please keep in mind that even if an ISSN is syntactically correct, it is
 not necessarily associated with a resource and actually assigned by an ISSN
 National Center.
 
-This is developed by the Metadata Department of the [German National Library]
-(DNB). It is used for data analysis and for automating metadata workflows
-(data engineering) as part of automatic content indexing.
+This project is developed by the Metadata Department of the [German National
+Library] (DNB). It is used for data analysis and for automating metadata
+workflows (data engineering) as part of automatic content indexing.
 
 ## Contributing
 

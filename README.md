@@ -3,17 +3,50 @@
 [![Continuous Integration](https://github.com/deutsche-nationalbibliothek/issn-rs/actions/workflows/ci.yaml/badge.svg)](https://github.com/deutsche-nationalbibliothek/issn-rs/actions/workflows/ci.yaml)
 [![License](https://img.shields.io/github/license/deutsche-nationalbibliothek/marc21-rs?color=blue)](./LICENSE)
 
-This project provides functions for working with International Standard Serial
-Numbers (ISSNs). The `issn` crate focuses on a simple API, high performance,
-and minimal dependencies on other libraries.
-
-Please keep in mind that even if an ISSN is syntactically correct, it is
-not necessarily associated with a resource and actually assigned by an ISSN
-National Center.
+The goal of the project is to keep simple things simple: The core component of
+the `issn` crate is the parsing of an [International Standard Serial Number]
+(ISSN), which includes its validation (checksum verification). The error
+reporting provides details about the underlying error if an ISSN cannot be
+parsed. Finally, the ISSN can be converted back into a string.
 
 This project is developed by the Metadata Department of the [German National
 Library] (DNB). It is used for data analysis and for automating metadata
-workflows (data engineering) as part of automatic content indexing.
+workflows (data engineering) as part of automatic subject indexing.
+
+## Example
+
+```rust
+use issn::Issn;
+
+let issn = Issn::new("0720-6763")?;
+println!("issn = {issn}");
+```
+
+## Performance
+
+The software library delivers quite good performance metrics. In the following
+benchmark, 4,510,133 ISSNs, sourced from the [bibliographic records] of German
+National Library, were validated. The [test program] reads the file line by
+line and validates each value as it is read. If a record is invalid, a counter
+is incremented. The test data was compiled using the [marc21] tool as follows:
+
+```console
+$ marc21 select -ps '02[23].a' dnb_all_dnbmarc.*.mrc.gz -o issn.csv
+40,100,473 records, 0 invalid | 93,842 records/s, elapsed: 00:07:28
+
+$ wc -l issn.csv
+4510133 issn.csv
+```
+
+The following benchmark results were measured using [hyperfine]:
+
+```console
+$ hyperfine -S --warmup 10 --min-runs 100 './validate ~/tmp/issn.csv'
+Benchmark 1: ./validate ~/tmp/issn.csv (100 runs)
+                mean     ±       σ          min     …     max
+  Wall Time    301.3 ms  ±    10.9 ms     289.7 ms  …   361.5 ms
+  Memory         2.2 MiB ±     0.0 MiB      2.2 MiB …     2.2 MiB
+```
 
 ## Contributing
 
@@ -25,6 +58,11 @@ Origin][DCO].
 
 This project is licensed under the [European Union Public License 1.2][EUPL].
 
+[bibliographic records]: https://data.dnb.de/DNB/
 [DCO]: https://developercertificate.org
-[German National Library]: https://dnb.de/
 [EUPL]: ./LICENSE
+[German National Library]: https://dnb.de/
+[hyperfine]: https://github.com/sharkdp/hyperfine
+[International Standard Serial Number]: https://en.wikipedia.org/wiki/ISSN
+[marc21]: https://deutsche-nationalbibliothek.github.io/marc21-rs/marc21-cli/
+[test program]: ./examples/validate.rs

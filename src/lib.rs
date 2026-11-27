@@ -207,7 +207,9 @@ impl std::error::Error for Error {}
 enum ErrorKind {
     // An invalid digit
     Digit { value: u8, position: usize },
-    // An invalid checksum in the last position
+    // An invalid checksum digit
+    ChecksumDigit { value: u8 },
+    // An invalid checksum
     Checksum { value: u8, checksum: u8 },
     // The input is too small
     Length { position: usize },
@@ -225,6 +227,10 @@ impl Display for Error {
             Digit { value, position } => write!(
                 f,
                 "expected ASCII digit at position {position}, but got `{value}`"
+            ),
+            ChecksumDigit { value } => write!(
+                f,
+                "expected ASCII digit or 'X' in the last position, but got `{value}`"
             ),
             Checksum { value, checksum } => write!(
                 f,
@@ -280,8 +286,11 @@ impl<'a> Parser<'a> {
 
         // parse the second group of four ASCII digits
         digits
-            .try_extend_from_slice(self.parse_ascii_digits(4)?)
+            .try_extend_from_slice(self.parse_ascii_digits(3)?)
             .unwrap();
+
+        // parse checksum
+        digits.push(self.parse_checksum()?);
 
         let issn = Issn { digits };
 
@@ -307,14 +316,7 @@ impl<'a> Parser<'a> {
         let mut end = start;
 
         for _ in 0..n {
-            if self.is_done() {
-                return Err(Error {
-                    kind: ErrorKind::Length {
-                        position: self.position,
-                    },
-                });
-            }
-
+            self.ensure_not_done()?;
             let byte = self.byte();
 
             if !byte.is_ascii_digit() {
@@ -333,16 +335,26 @@ impl<'a> Parser<'a> {
         Ok(&self.input[start..end])
     }
 
+    /// Parses the checksum
+    #[cfg_attr(feature = "perf-inline", inline(always))]
+    fn parse_checksum(&mut self) -> Result<u8, Error> {
+        self.ensure_not_done()?;
+        let value = self.byte();
+
+        if !matches!(value, b'0'..=b'9' | b'X') {
+            return Err(Error {
+                kind: ErrorKind::ChecksumDigit { value },
+            });
+        }
+
+        self.consume();
+        Ok(value)
+    }
+
     /// Parses the separator b'-'
     #[cfg_attr(feature = "perf-inline", inline(always))]
     fn parse_separator(&mut self) -> Result<(), Error> {
-        if self.is_done() {
-            return Err(Error {
-                kind: ErrorKind::Length {
-                    position: self.position,
-                },
-            });
-        }
+        self.ensure_not_done()?;
 
         if self.byte() != b'-' {
             return Err(Error {
@@ -355,13 +367,28 @@ impl<'a> Parser<'a> {
     }
 
     /// Returns true if the end of input is reached
-    #[inline(always)]
+    #[cfg_attr(feature = "perf-inline", inline(always))]
     fn is_done(&self) -> bool {
         self.position == self.input.len()
     }
 
+    /// Returns an error if the end of input is reached, otherwise the
+    /// unit type.
+    #[cfg_attr(feature = "perf-inline", inline(always))]
+    fn ensure_not_done(&self) -> Result<(), Error> {
+        if self.is_done() {
+            return Err(Error {
+                kind: ErrorKind::Length {
+                    position: self.position,
+                },
+            });
+        }
+
+        Ok(())
+    }
+
     /// Continue to the next byte
-    #[inline(always)]
+    #[cfg_attr(feature = "perf-inline", inline(always))]
     fn consume(&mut self) {
         self.position += 1;
     }
@@ -370,7 +397,7 @@ impl<'a> Parser<'a> {
     ///
     /// This function panics when a position beyond the end of the
     /// input is accessed.
-    #[inline(always)]
+    #[cfg_attr(feature = "perf-inline", inline(always))]
     fn byte(&self) -> u8 {
         self.input[self.position]
     }
@@ -381,13 +408,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_issn_new() {
-        let issn = Issn::new(b"1434-4653").unwrap();
-        assert_eq!(
-            issn,
-            Issn {
-                digits: ArrayVec::try_from(*b"14344653").unwrap(),
-            }
-        );
+    fn test_parse_issn() {
+        macro_rules! parse_success {
+            ($input:expr, $bytes:expr) => {
+                assert_eq!(
+                    Parser::new($input).parse().unwrap(),
+                    Issn {
+                        digits: ArrayVec::try_from(*$bytes).unwrap(),
+                    }
+                );
+            };
+        }
+
+        parse_success!("0294-0000", b"02940000");
+        parse_success!("0344-7871", b"03447871");
+        parse_success!("0077-5762", b"00775762");
+        parse_success!("0002-8703", b"00028703");
+        parse_success!("0160-6514", b"01606514");
+        parse_success!("0548-3085", b"05483085");
+        parse_success!("0160-6506", b"01606506");
+        parse_success!("0276-9077", b"02769077");
+        parse_success!("0177-8048", b"01778048");
+        parse_success!("0942-3869", b"09423869");
+        parse_success!("0201-193X", b"0201193X");
     }
 }

@@ -11,6 +11,7 @@ parsed. Finally, the ISSN can be converted back into a string.
 
 The library is used by the following projects:
 
+* [pica] (CLI) — to find invalid ISSNs in PICA+ records using the [check][check2] command
 * [marc21] (CLI) — to find invalid ISSNs in MARC21 records using the [check] command
 * [marc21-learn] (Python) — provides [utility functions] for working with ISSNs
 * [datashed] (CLI) - to [extract ISSNs] from fulltext documents
@@ -65,6 +66,7 @@ Origin][DCO].
 This project is licensed under the [European Union Public License 1.2][EUPL].
 
 [bibliographic records]: https://data.dnb.de/DNB/
+[check2]: https://deutsche-nationalbibliothek.github.io/pica-rs/commands/check.html#issn
 [check]: https://deutsche-nationalbibliothek.github.io/marc21-rs/marc21-cli/reference/commands/marc21-check.html
 [datashed]: https://deutsche-nationalbibliothek.github.io/dataset-tools/index.html#datashed
 [DCO]: https://developercertificate.org
@@ -75,5 +77,6 @@ This project is licensed under the [European Union Public License 1.2][EUPL].
 [International Standard Serial Number]: https://en.wikipedia.org/wiki/ISSN
 [marc21]: https://deutsche-nationalbibliothek.github.io/marc21-rs/marc21-cli/
 [marc21-learn]: https://pypi.org/project/marc21-learn/
+[pica]: https://deutsche-nationalbibliothek.github.io/pica-rs/
 [test program]: ./examples/validate.rs
 [utility functions]: https://deutsche-nationalbibliothek.github.io/marc21-rs/marc21-learn/reference/pid.html#international-standard-serial-number-issn

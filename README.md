@@ -11,7 +11,9 @@ parsed. Finally, the ISSN can be converted back into a string.
 
 The library is used by the following projects:
 
-* [marc21] — to find invalid ISSNs in MARC21 records using the [check] command
+* [marc21] (CLI) — to find invalid ISSNs in MARC21 records using the [check] command
+* [marc21-learn] (Python) — provides [utility functions] for working with ISSNs
+* [datashed] (CLI) - to [extract ISSNs] from fulltext documents
 
 This project is developed by the Metadata Department of the [German National
 Library] (DNB). It is used for data analysis and for automating metadata
@@ -64,10 +66,14 @@ This project is licensed under the [European Union Public License 1.2][EUPL].
 
 [bibliographic records]: https://data.dnb.de/DNB/
 [check]: https://deutsche-nationalbibliothek.github.io/marc21-rs/marc21-cli/reference/commands/marc21-check.html
+[datashed]: https://deutsche-nationalbibliothek.github.io/dataset-tools/index.html#datashed
 [DCO]: https://developercertificate.org
 [EUPL]: ./LICENSE
+[extract ISSNs]: https://deutsche-nationalbibliothek.github.io/dataset-tools/getting-started/datashed.html#bibliographic-references
 [German National Library]: https://dnb.de/
 [hyperfine]: https://github.com/sharkdp/hyperfine
 [International Standard Serial Number]: https://en.wikipedia.org/wiki/ISSN
 [marc21]: https://deutsche-nationalbibliothek.github.io/marc21-rs/marc21-cli/
+[marc21-learn]: https://pypi.org/project/marc21-learn/
 [test program]: ./examples/validate.rs
+[utility functions]: https://deutsche-nationalbibliothek.github.io/marc21-rs/marc21-learn/reference/pid.html#international-standard-serial-number-issn
